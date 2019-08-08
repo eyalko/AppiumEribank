@@ -1,55 +1,58 @@
-import io.appium.java_client.android.AndroidDriver;
-import io.appium.java_client.android.AndroidElement;
+
 import io.appium.java_client.remote.AndroidMobileCapabilityType;
 import io.appium.java_client.remote.MobileCapabilityType;
-import org.testng.annotations.*;
-
+import org.junit.*;
 import org.openqa.selenium.By;
 import org.openqa.selenium.ScreenOrientation;
 
-import java.net.MalformedURLException;
-import java.net.URL;
-import java.util.logging.Level;
 
 public class Android extends baseTest {
 
-	protected AndroidDriver<AndroidElement> driver = null;
 
-    @BeforeTest
-    public void setUp() throws MalformedURLException {
-        dc.setCapability("testName", "Android Eribank test");
-        dc.setCapability("accessKey", accessKey);
-        dc.setCapability("deviceQuery", "@os='android' and @category='PHONE'");
+    @Override
+    public void setUpClass() {
+        testName = "Test Android";
+        String udid = runInParallel.useDeviceFromFilterDevices("Android");
+        if (udid != null) {
+            deviceQuery = "@serialNumber='"+udid+"'";
+        } else {
+
+        }
         dc.setCapability(MobileCapabilityType.APP, "cloud:com.experitest.ExperiBank/.LoginActivity");
         dc.setCapability(AndroidMobileCapabilityType.APP_PACKAGE, "com.experitest.ExperiBank");
         dc.setCapability(AndroidMobileCapabilityType.APP_ACTIVITY, ".LoginActivity");
-        dc.setCapability("EribankTest", "Eyal");
-        driver = new AndroidDriver<>(new URL(cloudURL+"/wd/hub"), dc);
-        driver.setLogLevel(Level.INFO);
-        
+
+
     }
 
     @Test
-    public void quickStartAndroidNativeDemo() {
-    	driver.rotate(ScreenOrientation.PORTRAIT);
+    public void quickStartAndroidNativeDemo() throws InterruptedException {
+        System.out.println(client.getDevicesInformation());
+        driver.rotate(ScreenOrientation.PORTRAIT);
         driver.findElement(By.xpath("//*[@id='usernameTextField']")).sendKeys("company");
         driver.hideKeyboard();
         driver.findElement(By.xpath("//*[@id='passwordTextField']")).sendKeys("company");
         driver.findElement(By.xpath("//*[@id='loginButton']")).click();
-        driver.findElement(By.xpath("//*[@id='makePaymentButton']")).click();
-        driver.findElement(By.xpath("//*[@id='phoneTextField']")).sendKeys("0541234567");
-        driver.findElement(By.xpath("//*[@id='nameTextField']")).sendKeys("Jon Snow");
-        driver.findElement(By.xpath("//*[@id='amountTextField']")).sendKeys("50");
-        driver.findElement(By.xpath("//*[@id='countryButton']")).click();
-        driver.findElement(By.xpath("//*[@text='Switzerland']")).click();
-        driver.findElement(By.xpath("//*[@id='sendPaymentButton']")).click();
-        driver.findElement(By.xpath("//*[@text='Yes']")).click();
-        String testReportUrl = (String) driver.getCapabilities().getCapability("reportUrl");
-        System.out.println(testReportUrl);
+//        driver.findElement(By.xpath("//*[@id='makePaymentButton']")).click();
+//        driver.findElement(By.xpath("//*[@id='phoneTextField']")).sendKeys("0541234567");
+//        driver.findElement(By.xpath("//*[@id='nameTextField']")).sendKeys("Jon Snow");
+//        driver.findElement(By.xpath("//*[@id='amountTextField']")).sendKeys("50");
+//        driver.findElement(By.xpath("//*[@id='countryButton']")).click();
+//        driver.findElement(By.xpath("//*[@text='Switzerland']")).click();
+//        driver.findElement(By.xpath("//*[@id='sendPaymentButton']")).click();
+//        driver.findElement(By.xpath("//*[@text='Yes']")).click();
+
     }
 
-    @AfterTest
-    public void tearDown() {
-        driver.quit();
+
+    public void setWifi() {
+        try {
+            client.run("am instrument -w -r com.experitest.device.devicecontrol/com.experitest.device.devicecontrol.instrumentations.WifiForgetAll");
+            client.run("am instrument -w -r -e ssid lab -e password 0528544681 com.experitest.device.devicecontrol/com.experitest.device.devicecontrol.instrumentations.WifiConfig");
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
     }
+
+
 }
