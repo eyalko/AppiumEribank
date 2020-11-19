@@ -1,25 +1,35 @@
 package DB;
 
-import com.mashape.unirest.http.HttpResponse;
-import com.mashape.unirest.http.Unirest;
 import org.apache.commons.lang3.StringUtils;
-import org.json.JSONObject;
 
 import java.sql.*;
 import java.text.SimpleDateFormat;
+import java.util.*;
 import java.util.Date;
 
 public class writeToDB {
 
-    String DBserverURL = "192.168.1.216";
+    String DBserverURL = "192.168.2.80";
     String DBport = "5432";
-    String DBname = "performanceDeep";
+    String DBname = "testResults";
 
     private final String url = "jdbc:postgresql://"+ DBserverURL +":"+ DBport +"/"+DBname;
     private final String user = "postgres";
     private final String password = "Experitest2012";
 
-    public static Connection conn;
+//    private static writeToDB writeToDBInstance = null;
+    private static Connection conn;
+
+//    public synchronized static writeToDB getInstance(){
+//        if(writeToDBInstance == null){
+//            writeToDBInstance = new writeToDB();
+//        }
+//        return writeToDBInstance;
+//    }
+
+    public writeToDB() {
+        connect();
+    }
 
     // local DB
 //    private final String url = "jdbc:postgresql://localhost:5432/performanceDeep";
@@ -31,7 +41,7 @@ public class writeToDB {
      *
      * @return a Connection object
      */
-    public Connection connect() {
+    private Connection connect() {
 //        Connection conn = null;
         try {
             conn = DriverManager.getConnection(url, user, password);
@@ -91,105 +101,30 @@ public class writeToDB {
     }
 
 
-    /**
-     * @param args the command line arguments
-     */
-    public static void main(String[] args) {
-        writeToDB app = new writeToDB();
-
-        app.connect();
-
-
-
-//        rowInTable currentRow = new rowInTable("12.8.7777","Windows","32354555ddd41","13.0", "Test iOS","click","//*[@id='passwordTextField']","1.333");
-//        long commandID = app.insertCommand(currentRow);
-//        System.out.println("c_id row added to table: " + commandID);
-
-
-    }
-
-
-//    public static String getCloudVersion() {
-//        String CloudVersion="";
-//        HttpResponse<String> responseString;
-//        String url = "https://qa-win2016.experitest.com/api/v2/status/capabilities";
-//        System.out.println("API_Cloud Url is: "+url);
-//
-//        try {
-//            responseString = Unirest.get(url)
-//                    .basicAuth("eyalk", "Experitest2012")
-//                    .header("content-type", "application/json")
-//                    .asString();
-//            //   System.out.println(responseString.getBody());
-//            CloudVersion = parsingJson(responseString.getBody(),"version");
-//        } catch (Exception e) {
-//            e.printStackTrace();
-//        }
-//
-//        return CloudVersion;
-//
-//    }
-//
-//    public static String parsingJson(String Json_String,String key){
-//        System.out.println("Json string is "+Json_String);
-//        String returnValue=null;
-//        try {
-//            JSONObject Json_obj = new JSONObject(Json_String);
-//            returnValue = Json_obj.getString(key);
-//        }catch (Exception e){
-//            System.out.println("Cant parse JSON "+ e.getMessage());
-//
-//        }
-//
-//        return returnValue;
-//    }
-
-
-    public void selectFromDB(String query) {
+    public List<Map<String , String>> getDataFromTable(String query) {
+        List<Map<String , String>> tableArray  = new ArrayList<Map<String,String>>();
 
         try {
             Statement stmt = conn.createStatement();
             ResultSet rs;
-
             rs = stmt.executeQuery(query);
-
-
             ResultSetMetaData rsmd = rs.getMetaData();
-            System.out.println("querying \"" + query + "\"");
+            //System.out.println("querying \"" + query + "\"");
+
             int columnsNumber = rsmd.getColumnCount();
-            String[] row = new String[columnsNumber];
-            String format = StringUtils.repeat("%-40s",columnsNumber);
-//            String format = "%-15s%-15s%-15s%-45s%-17s%-25s%-25s%-35s%-20s%-35s%-10s";
-            for (int i = 1; i <= columnsNumber; i++) {
-                row[i-1] = rsmd.getColumnName(i);
-            }
-            System.out.format(format+"\n", row);
-
-            // ******
-            row = new String[columnsNumber];
-            for (int i = 1; i <= columnsNumber; i++) {
-                row[i - 1] = "----------";
-            }
-            System.out.format(format+"\n", row);
-
             while (rs.next()) {
-                row = new String[columnsNumber];
+                Map<String,String> RowMap = new HashMap<String, String>();
                 for (int i = 1; i <= columnsNumber; i++) {
-                    row[i-1] = rs.getString(i);
-
-//                    if (i > 1) System.out.print(", ");
-//                    String columnValue = rs.getString(i);
-//                    System.out.print(rsmd.getColumnName(i) + ": " + columnValue);
+                    RowMap.put(rsmd.getColumnName(i), rs.getString(i));
                 }
-                System.out.format(format+"\n", row);
+                tableArray.add(RowMap);
             }
-            conn.close();
         } catch (Exception e) {
             System.err.println("Got an exception! ");
             System.err.println(e.getMessage());
         }
+        return tableArray;
     }
-
 
 
 }
