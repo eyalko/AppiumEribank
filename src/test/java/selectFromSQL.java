@@ -1,9 +1,6 @@
 import DB.writeToDB;
 
-import java.util.ArrayList;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 public class selectFromSQL {
 
@@ -38,18 +35,28 @@ public class selectFromSQL {
     public static String getAllAPIQuery = "select api_name from api_report\n" +
             "group by api_name";
 
+    public static String getAllTestsQuery = "select device_os, test_name from execution_report\n" +
+            "group by device_os, test_name\n" +
+            "order by device_os, test_name";
+
     static String query4 = "select * from execution_report where test_name='SimpleEriBankTest'";
 
     public static void main(String[] args) {
         app = new writeToDB(); // open connection
         String column = "build_average_duration";
-        newValidateDeviation(averageDurationQuery("ios", "NonInstrumentEribank"), column);
-        newValidateDeviation(averageDurationQuery("ios", "InstrumentEribank"), column);
-        newValidateDeviation(averageDurationQuery("android", "NonInstrumentEribank"), column);
-        newValidateDeviation(averageDurationQuery("android", "NonInstrumentEribank"), column);
+//        newValidateDeviation(averageDurationQuery("ios", "NonInstrumentEribank"), column);
+//        newValidateDeviation(averageDurationQuery("ios", "InstrumentEribank"), column);
+//        newValidateDeviation(averageDurationQuery("android", "NonInstrumentEribank"), column);
+//        newValidateDeviation(averageDurationQuery("android", "NonInstrumentEribank"), column);
 
-        System.out.println(all_api_names());
-        all_api_names().forEach((n) -> {
+//        System.out.println(all_tests_table());
+//        System.out.println(all_api_names_table());
+
+        all_tests_table().forEach((n) -> {
+            newValidateDeviation(averageDurationQuery(n.split(",")[0] ,n.split(",")[1]), column);
+        });
+
+        all_api_names_table().forEach((n) -> {
             newValidateDeviation(averageDurationAPIquery(n), column);
         });
 //
@@ -71,7 +78,7 @@ public class selectFromSQL {
 
     }
 
-    private static List<String> all_api_names() {
+    private static List<String> all_api_names_table() {
         List<Map<String , String>> tableArray = app.getDataFromTable(getAllAPIQuery);
         List<String> data = new ArrayList<>();
         for (int i=0; i<tableArray.size()-1; i++) {
@@ -80,7 +87,16 @@ public class selectFromSQL {
         return data;
     }
 
+    private static List<String> all_tests_table() {
+        List<Map<String , String>> tableArray = app.getDataFromTable(getAllTestsQuery);
+        List<String> data = new ArrayList<>();
+        for (int i=0; i<tableArray.size()-1; i++) {
+            data.add(tableArray.get(i).get("device_os") + "," + tableArray.get(i).get("test_name"));
+        }
+        return data;
+    }
 
+    /**
     public static void validateDeviation(String query, String columnToVerify) {
 
         List<Map<String , String>> tableArray = app.getDataFromTable(query);
@@ -106,7 +122,7 @@ public class selectFromSQL {
         System.out.println();
 
     }
-
+    **/
 
     public static void newValidateDeviation(String query, String columnToVerify) {
         // get only data column from query (except the new one)
@@ -115,7 +131,8 @@ public class selectFromSQL {
         for (int i=0; i<tableArray.size()-1; i++) {
             data.add(tableArray.get(i).get(columnToVerify));
         }
-        System.out.println("all before durations are: " + data.toString() + " size: " + data.size());
+        //data = new ArrayList<>(Arrays.asList("1","1.5","10","1.2","1.3","1.1"));
+//        System.out.println("all before durations are: " + data.toString() + " size: " + data.size());
 
         Double sd = calculateSDarray(data);
         Double avg = getAverage(data);
@@ -137,11 +154,10 @@ public class selectFromSQL {
 //                System.out.println("new sd is: " + sd + ", new avg is: " + avg);
             }
         }
-        System.out.println("all after durations are: " + data.toString() + " size: " + data.size());
+//        System.out.println("all after durations are: " + data.toString() + " size: " + data.size());
 
         String lastBuildDuration = tableArray.get(tableArray.size()-1).get(columnToVerify);
 
-        System.out.println("comparing last build to sd and avg");
         boolean ok = verifyDeviation(sd, Double.valueOf(lastBuildDuration), avg);
 
         System.out.println("Cloud version: " + tableArray.get(tableArray.size()-1).get("cloud_version"));
