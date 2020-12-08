@@ -6,7 +6,7 @@ public class selectFromSQL {
 
     public static writeToDB app;
 
-    public static String averageDurationAPIquery(String api_name) {
+    public static String averageDurationAPIquery(String api_name, String numOfBuilds) {
         System.out.println("* API name: " + api_name);
         return
             "select * from (\n" +
@@ -16,10 +16,10 @@ public class selectFromSQL {
             "    \tgroup by api_name, cloud_version\n" +
             "    \torder by cloud_version\n" +
             ") as table1\n" +
-            "where rownum<=50";
+            "where rownum<=" + numOfBuilds;
     }
 
-    public static String averageDurationQuery(String OS, String test_name) {
+    public static String averageDurationTestsQuery(String OS, String test_name, String numOfBuilds) {
         System.out.println("* OS: " + OS + "; Test: " + test_name);
         return
             "select * from (\n" +
@@ -29,7 +29,20 @@ public class selectFromSQL {
             "\tgroup by device_os, test_name, cloud_version\n" +
             "\torder by cloud_version\n" +
             ") as table1\n" +
-            "where rownum<=20";
+            "where rownum<=" + numOfBuilds;
+    }
+
+    public static String averageDurationCommands(String OS, String command_type, String command_xpath, String numOfBuilds) {
+        System.out.println("* OS: " + OS + "; Command: " + command_type + "; XPath: " + command_xpath);
+        return
+            "select * from (\n" +
+            "select cloud_version, device_os, device_udid, command_type, command_xpath, cast( AVG(cast(command_duration as float)) as decimal(10,3)) as build_average_duration, count(*) as num, row_number() over (partition by command_type,command_xpath order by cloud_version desc) as rownum\n" +
+            "\tfrom commands_report\n" +
+            "\twhere device_os='" + OS + "' and command_type='" + command_type + "' and command_xpath='" + command_xpath + "'\n" +
+            "\tgroup by cloud_version, device_os, device_udid, command_type, command_xpath\n" +
+            "\torder by cloud_version\n" +
+            ") as table1\n" +
+            "where rownum<=" + numOfBuilds;
     }
 
     public static String getAllAPIQuery = "select api_name from api_report\n" +
@@ -44,21 +57,23 @@ public class selectFromSQL {
     public static void main(String[] args) {
         app = new writeToDB(); // open connection
         String column = "build_average_duration";
-//        newValidateDeviation(averageDurationQuery("ios", "NonInstrumentEribank"), column);
-//        newValidateDeviation(averageDurationQuery("ios", "InstrumentEribank"), column);
-//        newValidateDeviation(averageDurationQuery("android", "NonInstrumentEribank"), column);
-//        newValidateDeviation(averageDurationQuery("android", "NonInstrumentEribank"), column);
+//        newValidateDeviation(averageDurationTestsQuery("ios", "NonInstrumentEribank", "30"), column);
+//        newValidateDeviation(averageDurationTestsQuery("ios", "InstrumentEribank"), column);
+//        newValidateDeviation(averageDurationTestsQuery("android", "NonInstrumentEribank"), column);
+//        newValidateDeviation(averageDurationTestsQuery("android", "NonInstrumentEribank"), column);
 
 //        System.out.println(all_tests_table());
 //        System.out.println(all_api_names_table());
 
         all_tests_table().forEach((n) -> {
-            newValidateDeviation(averageDurationQuery(n.split(",")[0] ,n.split(",")[1]), column);
+            newValidateDeviation(averageDurationTestsQuery(n.split(",")[0] ,n.split(",")[1], "20"), column);
         });
 
         all_api_names_table().forEach((n) -> {
-            newValidateDeviation(averageDurationAPIquery(n), column);
+            newValidateDeviation(averageDurationAPIquery(n, "50"), column);
         });
+
+//        newValidateDeviation(averageDurationCommands("ios", "findElement", "By.xpath: //*[@id=''usernameTextField'']"), column);
 //
 //        validateDeviation(averageDurationAPIquery("new user"), column);
 //        validateDeviation(averageDurationAPIquery("new project"), column);
@@ -131,41 +146,42 @@ public class selectFromSQL {
         for (int i=0; i<tableArray.size()-1; i++) {
             data.add(tableArray.get(i).get(columnToVerify));
         }
-        //data = new ArrayList<>(Arrays.asList("1","1.5","10","1.2","1.3","1.1"));
+//        data = new ArrayList<>(Arrays.asList("1","1.01","11.9","1.02","1.03","12","1.05","1.04"));
 //        System.out.println("all before durations are: " + data.toString() + " size: " + data.size());
 
         Double sd = calculateSDarray(data);
         Double avg = getAverage(data);
-//        System.out.println("current SD is: " + sd);
-//        System.out.println("current avg is: " + avg);
+        Iterator<String> dataIterator;
+        boolean foundOutlier = true;
 
-        Iterator<String> dataIterator = data.iterator();
-
-        while(dataIterator.hasNext()) {
-            String element = dataIterator.next();
-            boolean check = verifyDeviation(sd, Double.valueOf(element), avg);
-//            System.out.println(element + ": " + check);
-            if (!check) {
-                data.remove(element);
-                dataIterator = data.iterator();
-                sd = calculateSDarray(data);
-                avg = getAverage(data);
-//                System.out.println("new data is: " + data + " size: "+ data.size());
-//                System.out.println("new sd is: " + sd + ", new avg is: " + avg);
+        while (foundOutlier) {
+            foundOutlier = false;
+            dataIterator = data.iterator();
+            sd = calculateSDarray(data);
+            avg = getAverage(data);
+//            System.out.println("new sd is: " + sd + ", new avg is: " + avg);
+            while (dataIterator.hasNext()) {
+                String element = dataIterator.next();
+                boolean check = verifyDeviation(sd, Double.valueOf(element), avg);
+                if (!check) { // element is outlier - out of range
+                    foundOutlier = true;
+//                    System.out.println("removed " + element);
+                    dataIterator.remove();
+                }
             }
+//            System.out.println("new data is: " + data + " size: "+ data.size());
         }
 //        System.out.println("all after durations are: " + data.toString() + " size: " + data.size());
 
+        // last cloud build to verify with final SD and AVG
         String lastBuildDuration = tableArray.get(tableArray.size()-1).get(columnToVerify);
-
         boolean ok = verifyDeviation(sd, Double.valueOf(lastBuildDuration), avg);
-
         System.out.println("Cloud version: " + tableArray.get(tableArray.size()-1).get("cloud_version"));
         System.out.print("SD: " + String.format("%.3f", sd));
         System.out.print("; avg: " + String.format("%.3f", avg));
         System.out.println("; last duration: " + lastBuildDuration);
-        System.err.println("ok is: " + ok);
-        System.out.println();
+        System.err.print("status is: " + ok);
+        System.out.println(" compare to: " + data.size() + " builds\n");
 
     }
 
